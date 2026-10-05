@@ -18,13 +18,31 @@ def main() -> None:
     load = subcommands.add_parser("load", help="Archive, clean, and load an Excel workbook")
     load.add_argument("source", type=Path, help=".xlsx or .xlsm workbook")
     subcommands.add_parser("status", help="Show table counts and ingestion runs")
+    forecast = subcommands.add_parser(
+        "forecast", help="Backtest methods and forecast the next 26 weeks"
+    )
+    forecast.add_argument(
+        "--horizon", type=int, default=26, help="Forecast horizon, from 1 to 26 weeks"
+    )
+    forecast.add_argument(
+        "--report", type=Path, help="Optional JSON path for the evaluation report"
+    )
     args = parser.parse_args()
 
-    result = (
-        load_excel(args.source, args.db)
-        if args.command == "load"
-        else database_summary(args.db)
-    )
+    if args.command == "load":
+        result = load_excel(args.source, args.db)
+    elif args.command == "forecast":
+        from .forecasting import run_forecast
+
+        result = run_forecast(args.db, horizon=args.horizon)
+        if args.report:
+            args.report.parent.mkdir(parents=True, exist_ok=True)
+            report = {key: value for key, value in result.items() if key != "skipped_existing"}
+            args.report.write_text(
+                json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+    else:
+        result = database_summary(args.db)
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 

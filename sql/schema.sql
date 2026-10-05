@@ -122,3 +122,61 @@ SELECT
 FROM financials AS f
 JOIN dim_product AS p ON p.product_id = f.product_id
 JOIN dim_week AS w ON w.week_id = f.week_id;
+
+-- Forecasts are versioned and never inserted into the historical sales fact.
+CREATE TABLE IF NOT EXISTS forecast_run (
+    forecast_run_id INTEGER PRIMARY KEY,
+    run_key TEXT NOT NULL UNIQUE,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    input_max_week INTEGER NOT NULL,
+    horizon_weeks INTEGER NOT NULL CHECK (horizon_weeks > 0),
+    input_sha256 TEXT NOT NULL,
+    feature_version TEXT NOT NULL,
+    selected_method TEXT NOT NULL,
+    selection_rule TEXT NOT NULL,
+    selected_parameters_json TEXT NOT NULL,
+    development_metrics_json TEXT NOT NULL,
+    holdout_metrics_json TEXT NOT NULL,
+    training_rows INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS forecast_backtest (
+    forecast_run_id INTEGER NOT NULL REFERENCES forecast_run(forecast_run_id),
+    method TEXT NOT NULL,
+    fold_number INTEGER NOT NULL,
+    origin_week INTEGER NOT NULL,
+    product_id INTEGER NOT NULL REFERENCES dim_product(product_id),
+    target_week INTEGER NOT NULL,
+    actual_units INTEGER NOT NULL,
+    predicted_units REAL NOT NULL CHECK (predicted_units >= 0),
+    PRIMARY KEY (forecast_run_id, method, fold_number, product_id, target_week)
+);
+
+CREATE INDEX IF NOT EXISTS idx_forecast_backtest_method
+ON forecast_backtest(forecast_run_id, method, fold_number);
+
+CREATE TABLE IF NOT EXISTS fact_demand_forecast (
+    forecast_run_id INTEGER NOT NULL REFERENCES forecast_run(forecast_run_id),
+    product_id INTEGER NOT NULL REFERENCES dim_product(product_id),
+    week_id INTEGER NOT NULL REFERENCES dim_week(week_id),
+    predicted_units INTEGER NOT NULL CHECK (predicted_units >= 0),
+    lower_error_band_units INTEGER NOT NULL CHECK (lower_error_band_units >= 0),
+    upper_error_band_units INTEGER NOT NULL CHECK (upper_error_band_units >= 0),
+    PRIMARY KEY (forecast_run_id, product_id, week_id),
+    CHECK (lower_error_band_units <= predicted_units),
+    CHECK (upper_error_band_units >= predicted_units)
+);
+
+CREATE VIEW IF NOT EXISTS vw_latest_demand_forecast AS
+SELECT
+    p.product_name,
+    f.week_id,
+    f.predicted_units,
+    f.lower_error_band_units,
+    f.upper_error_band_units,
+    r.selected_method,
+    r.forecast_run_id
+FROM fact_demand_forecast AS f
+JOIN forecast_run AS r ON r.forecast_run_id = f.forecast_run_id
+JOIN dim_product AS p ON p.product_id = f.product_id
+WHERE f.forecast_run_id = (SELECT MAX(forecast_run_id) FROM forecast_run);

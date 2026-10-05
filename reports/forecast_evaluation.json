@@ -1,0 +1,296 @@
+{
+  "forecast_run_id": 1,
+  "input_max_week": 260,
+  "horizon_weeks": 26,
+  "backtest_origins": [
+    156,
+    182,
+    208,
+    234
+  ],
+  "selected_method": "gbdt_mae",
+  "selection_rule": "Lowest pooled MAE on the first three 26-week backtests; prefer the best baseline when it is within 1% of the best learned model. The final 26-week backtest is reported without influencing selection.",
+  "development_metrics": {
+    "gbdt_mae": {
+      "bias_units": 77.97,
+      "mae": 640.349,
+      "mape_coverage_pct": 81.58,
+      "mape_positive_pct": 65.549,
+      "observations": 2340,
+      "rmse": 895.577,
+      "wape_pct": 50.231,
+      "zero_actuals": 431
+    },
+    "gbdt_rmse": {
+      "bias_units": 87.699,
+      "mae": 660.732,
+      "mape_coverage_pct": 81.58,
+      "mape_positive_pct": 68.682,
+      "observations": 2340,
+      "rmse": 894.993,
+      "wape_pct": 51.83,
+      "zero_actuals": 431
+    },
+    "recent_13_mean": {
+      "bias_units": -46.79,
+      "mae": 693.037,
+      "mape_coverage_pct": 81.58,
+      "mape_positive_pct": 72.837,
+      "observations": 2340,
+      "rmse": 859.507,
+      "wape_pct": 54.364,
+      "zero_actuals": 431
+    },
+    "seasonal_52": {
+      "bias_units": -22.053,
+      "mae": 743.936,
+      "mape_coverage_pct": 81.58,
+      "mape_positive_pct": 62.44,
+      "observations": 2340,
+      "rmse": 1117.092,
+      "wape_pct": 58.356,
+      "zero_actuals": 431
+    }
+  },
+  "holdout_metrics": {
+    "gbdt_mae": {
+      "bias_units": 156.063,
+      "mae": 456.876,
+      "mape_coverage_pct": 86.79,
+      "mape_positive_pct": 90.351,
+      "observations": 780,
+      "rmse": 710.635,
+      "wape_pct": 36.806,
+      "zero_actuals": 103
+    },
+    "gbdt_rmse": {
+      "bias_units": 61.661,
+      "mae": 491.023,
+      "mape_coverage_pct": 86.79,
+      "mape_positive_pct": 89.006,
+      "observations": 780,
+      "rmse": 687.845,
+      "wape_pct": 39.557,
+      "zero_actuals": 103
+    },
+    "recent_13_mean": {
+      "bias_units": 83.292,
+      "mae": 562.025,
+      "mape_coverage_pct": 86.79,
+      "mape_positive_pct": 96.82,
+      "observations": 780,
+      "rmse": 738.843,
+      "wape_pct": 45.276,
+      "zero_actuals": 103
+    },
+    "seasonal_52": {
+      "bias_units": -44.478,
+      "mae": 610.599,
+      "mape_coverage_pct": 86.79,
+      "mape_positive_pct": 111.404,
+      "observations": 780,
+      "rmse": 946.054,
+      "wape_pct": 49.19,
+      "zero_actuals": 103
+    }
+  },
+  "fold_metrics": {
+    "seasonal_52": [
+      {
+        "observations": 780,
+        "zero_actuals": 165,
+        "mae": 833.183,
+        "rmse": 1218.143,
+        "mape_positive_pct": 85.32,
+        "mape_coverage_pct": 78.85,
+        "wape_pct": 65.241,
+        "bias_units": -32.45
+      },
+      {
+        "observations": 780,
+        "zero_actuals": 113,
+        "mae": 600.599,
+        "rmse": 938.693,
+        "mape_positive_pct": 53.164,
+        "mape_coverage_pct": 85.51,
+        "wape_pct": 50.182,
+        "bias_units": 39.747
+      },
+      {
+        "observations": 780,
+        "zero_actuals": 153,
+        "mae": 798.027,
+        "rmse": 1174.167,
+        "mape_positive_pct": 49.865,
+        "mape_coverage_pct": 80.38,
+        "wape_pct": 59.09,
+        "bias_units": -73.455
+      },
+      {
+        "observations": 780,
+        "zero_actuals": 103,
+        "mae": 610.599,
+        "rmse": 946.054,
+        "mape_positive_pct": 111.404,
+        "mape_coverage_pct": 86.79,
+        "wape_pct": 49.19,
+        "bias_units": -44.478
+      }
+    ],
+    "recent_13_mean": [
+      {
+        "observations": 780,
+        "zero_actuals": 165,
+        "mae": 737.018,
+        "rmse": 917.673,
+        "mape_positive_pct": 105.269,
+        "mape_coverage_pct": 78.85,
+        "wape_pct": 57.711,
+        "bias_units": -9.953
+      },
+      {
+        "observations": 780,
+        "zero_actuals": 113,
+        "mae": 612.365,
+        "rmse": 762.155,
+        "mape_positive_pct": 68.539,
+        "mape_coverage_pct": 85.51,
+        "wape_pct": 51.165,
+        "bias_units": 7.027
+      },
+      {
+        "observations": 780,
+        "zero_actuals": 153,
+        "mae": 729.726,
+        "rmse": 890.649,
+        "mape_positive_pct": 45.599,
+        "mape_coverage_pct": 80.38,
+        "wape_pct": 54.032,
+        "bias_units": -137.444
+      },
+      {
+        "observations": 780,
+        "zero_actuals": 103,
+        "mae": 562.025,
+        "rmse": 738.843,
+        "mape_positive_pct": 96.82,
+        "mape_coverage_pct": 86.79,
+        "wape_pct": 45.276,
+        "bias_units": 83.292
+      }
+    ],
+    "gbdt_mae": [
+      {
+        "observations": 780,
+        "zero_actuals": 165,
+        "mae": 633.132,
+        "rmse": 880.819,
+        "mape_positive_pct": 94.613,
+        "mape_coverage_pct": 78.85,
+        "wape_pct": 49.577,
+        "bias_units": 171.467
+      },
+      {
+        "observations": 780,
+        "zero_actuals": 113,
+        "mae": 662.506,
+        "rmse": 954.677,
+        "mape_positive_pct": 68.378,
+        "mape_coverage_pct": 85.51,
+        "wape_pct": 55.355,
+        "bias_units": 49.319
+      },
+      {
+        "observations": 780,
+        "zero_actuals": 153,
+        "mae": 625.41,
+        "rmse": 847.896,
+        "mape_positive_pct": 34.033,
+        "mape_coverage_pct": 80.38,
+        "wape_pct": 46.308,
+        "bias_units": 13.124
+      },
+      {
+        "observations": 780,
+        "zero_actuals": 103,
+        "mae": 456.876,
+        "rmse": 710.635,
+        "mape_positive_pct": 90.351,
+        "mape_coverage_pct": 86.79,
+        "wape_pct": 36.806,
+        "bias_units": 156.063
+      }
+    ],
+    "gbdt_rmse": [
+      {
+        "observations": 780,
+        "zero_actuals": 165,
+        "mae": 688.944,
+        "rmse": 931.788,
+        "mape_positive_pct": 103.369,
+        "mape_coverage_pct": 78.85,
+        "wape_pct": 53.947,
+        "bias_units": 164.67
+      },
+      {
+        "observations": 780,
+        "zero_actuals": 113,
+        "mae": 619.604,
+        "rmse": 882.715,
+        "mape_positive_pct": 66.677,
+        "mape_coverage_pct": 85.51,
+        "wape_pct": 51.77,
+        "bias_units": 187.95
+      },
+      {
+        "observations": 780,
+        "zero_actuals": 153,
+        "mae": 673.648,
+        "rmse": 869.266,
+        "mape_positive_pct": 36.791,
+        "mape_coverage_pct": 80.38,
+        "wape_pct": 49.88,
+        "bias_units": -89.523
+      },
+      {
+        "observations": 780,
+        "zero_actuals": 103,
+        "mae": 491.023,
+        "rmse": 687.845,
+        "mape_positive_pct": 89.006,
+        "mape_coverage_pct": 86.79,
+        "wape_pct": 39.557,
+        "bias_units": 61.661
+      }
+    ]
+  },
+  "worst_holdout_products": [
+    {
+      "product": "Wheat - Soft",
+      "mae": 1041.322
+    },
+    {
+      "product": "Sugar - White Refined",
+      "mae": 894.582
+    },
+    {
+      "product": "Yeast - Dry",
+      "mae": 866.703
+    },
+    {
+      "product": "Barley",
+      "mae": 796.774
+    },
+    {
+      "product": "Tea - Black Ceylon",
+      "mae": 769.971
+    }
+  ],
+  "training_rows": 76440,
+  "forecast_rows": 780,
+  "forecast_weeks": [
+    261,
+    286
+  ],
+  "error_band": "90th percentile absolute error by horizon on development folds"
+}

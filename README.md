@@ -1,9 +1,9 @@
 # Weekly commodity data pipeline
 
-This project implements the data engineering stage of the technical assessment.
+This project implements the data engineering and demand forecasting stages of the technical assessment.
 It archives each input Excel workbook in SQLite, retains every parsed data row in
 a raw table, validates and cleans the rows, and loads a small star schema. The
-default generated database path is data/assessment.sqlite. Forecasting and the
+default generated database path is data/assessment.sqlite. The KPI layer and
 dashboard are the next stages.
 
 ## Data flow
@@ -18,8 +18,13 @@ Excel workbook (.xlsx / .xlsm)
                                 v
                     dim_product + dim_week + fact_weekly_product
                                                |
-                                               v
-                                        vw_weekly_kpi
+                         +---------------------+--------------------+
+                         |                                          |
+                         v                                          v
+                  vw_weekly_kpi                          forecasting backtests
+                                                               |
+                                                               v
+                                         forecast_run + fact_demand_forecast
 ~~~
 
 The workbook archive and raw rows are committed before the clean load. If
@@ -36,6 +41,7 @@ From this directory:
 py -3.13 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe -m assessment_etl load .\Technical_Assessment\Sample_Data.xlsx
+.\.venv\Scripts\python.exe -m assessment_etl forecast --horizon 26 --report .\reports\forecast_evaluation.json
 .\.venv\Scripts\python.exe -m assessment_etl status
 ~~~
 
@@ -96,6 +102,10 @@ archived.
 | dim_week | Relative week number and derived 52-week cycle position. |
 | fact_weekly_product | One cleaned row per product/week, with source row provenance. |
 | vw_weekly_kpi | Human-scale monetary values, margin, and revenue growth. |
+| forecast_run | Model choice, data hash, parameters, and development/holdout metrics. |
+| forecast_backtest | Predictions and actual sales for each method and historical test window. |
+| fact_demand_forecast | Versioned future predictions and empirical error bands. |
+| vw_latest_demand_forecast | The newest forecast run for dashboard queries. |
 
 Counts and week IDs use SQLite INTEGER. Unit cost, unit price, revenue,
 gross profit, and operating profit are stored as integer cents to avoid
@@ -144,7 +154,9 @@ Run the integration checks:
 The checks cover exact workbook archive bytes, raw and fact row counts,
 idempotent reloads, reordered and aliased headers, additional columns,
 recovered sales, malformed rows, conflicting duplicates, later-file updates,
-and archival of an unreadable workbook.
+and archival of an unreadable workbook. Forecast checks verify that future
+sales and prices cannot enter features, MAPE excludes zero actuals, and
+forecasts remain separate from actual sales.
 
 Useful SQLite queries:
 
@@ -168,8 +180,48 @@ ORDER BY product_name, week_id
 LIMIT 10;
 ~~~
 
+## Forecasting design and evaluation
+
+The available target is recorded Sales_Units. It is a proxy for demand: lost
+sales and receipts within a week are not supplied. The model predicts each
+product's next 26 weekly sales values directly, without recursively using its
+own predictions as lagged observations.
+
+Four non-overlapping rolling backtests use origins at weeks 156, 182, 208,
+and 234. Each predicts the following 26 weeks. The first three windows
+select the method; the last window, weeks 235-260, reports an untouched
+holdout result. Every model is trained only on target weeks at or before its
+origin. Two baselines are compared with two gradient-boosted tree variants:
+seasonal repetition from 52 weeks earlier, the mean of the latest 13 weeks,
+and global models with absolute-error or squared-error loss.
+
+Features use known product identity, forecast horizon, week number and a
+52-week seasonal cycle; lagged sales and rolling volume statistics; and the
+latest known price plus its recent average. The historical Demand_Forecast
+column is excluded because it is incomplete and its future values are
+unavailable. Future inventory and future price paths are also unavailable;
+the model uses only the price known at the forecast origin. The database
+must have a continuous weekly history for every product to run this model.
+
+Method selection uses pooled development MAE, with a simpler baseline
+preferred if it is within 1% of the best learned model. RMSE, WAPE, bias,
+and MAPE on positive actual sales are also reported. MAPE coverage is
+reported because the source contains many zero-sales weeks, where MAPE
+is undefined. Future error bands use the 90th percentile of absolute
+development errors at each horizon; they are descriptive ranges, not
+calibrated probabilities.
+
+For the supplied data, the selected method is the absolute-error gradient
+boosting model. Its holdout MAE is 456.876 units, compared with 562.025
+for the 13-week mean baseline and 610.599 for the 52-week seasonal
+baseline. The holdout WAPE is 36.806%. The full per-fold results are in
+reports/forecast_evaluation.json, with interpretation in
+reports/forecast_summary.md. The final forecast contains 780 rows
+for 30 products and weeks 261-286. Forecasts are stored separately
+from actual sales and versioned by run.
+
 ## Next stage
 
-Build a time-based forecasting baseline and model using the cleaned weekly
-fact data. Keep the 26 future forecast weeks in a separate forecast fact
-table so predictions are not mixed with actual sales.
+Define and compute the financial, operational, and sales/credit KPIs that
+the data can support, then build the interactive dashboard around those
+definitions and the versioned forecast.

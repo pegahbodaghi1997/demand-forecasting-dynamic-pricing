@@ -668,6 +668,9 @@ def database_summary(database: Path = DEFAULT_DATABASE) -> dict[str, object]:
                 "dim_week",
                 "fact_weekly_product",
                 "data_quality_issue",
+                "forecast_run",
+                "forecast_backtest",
+                "fact_demand_forecast",
             )
         }
         runs = [
@@ -714,6 +717,13 @@ def database_summary(database: Path = DEFAULT_DATABASE) -> dict[str, object]:
                 """
                 SELECT COUNT(*) FROM fact_weekly_product
                 WHERE sales_recovered = 1
+                """
+            ).fetchone()[0],
+            "forecast_actual_overlaps": connection.execute(
+                """
+                SELECT COUNT(*) FROM fact_demand_forecast AS d
+                JOIN fact_weekly_product AS a
+                  ON a.product_id = d.product_id AND a.week_id = d.week_id
                 """
             ).fetchone()[0],
         }
