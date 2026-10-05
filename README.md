@@ -3,8 +3,8 @@
 This project implements the data engineering stage of the technical assessment.
 It archives each input Excel workbook in SQLite, retains every parsed data row in
 a raw table, validates and cleans the rows, and loads a small star schema. The
-provided workbook is already loaded in the local generated database at
-data/assessment.sqlite. Forecasting and the dashboard are the next stages.
+default generated database path is data/assessment.sqlite. Forecasting and the
+dashboard are the next stages.
 
 ## Data flow
 
