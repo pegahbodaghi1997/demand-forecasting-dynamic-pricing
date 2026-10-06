@@ -1,4 +1,4 @@
-# Weekly commodity data pipeline
+# Weekly commodity forecasting and KPI dashboard
 
 This project implements the data engineering, demand forecasting, historical
 KPI, and interactive dashboard stages of the technical assessment.
@@ -33,27 +33,74 @@ ingestion_run.source_workbook; the run is marked failed. A successful retry
 can use the staged raw rows. A file with the same SHA-256 hash is skipped after
 a successful load, so rerunning it does not multiply rows.
 
-## Local setup (Windows PowerShell)
+## Reproduce locally from a fresh checkout
 
-From this directory:
+This repository includes `Technical_Assessment/Sample_Data.xlsx`, the sample
+workbook used for the recorded results. The generated SQLite database, virtual
+environment, and dashboard snapshot are not versioned. Clone the repository
+or download its ZIP from GitHub, then run the commands below from the extracted
+repository root. Python 3.13 is required; SQLite is included with Python.
+Dependency installation needs internet access. No cloud account or hosted
+database is needed to run the project.
+
+For reviewers with Git and GitHub SSH access, the checkout command is:
+
+~~~text
+git clone git@github.com:pegahbodaghi1997/demand-forecasting-dynamic-pricing.git
+cd demand-forecasting-dynamic-pricing
+~~~
+
+### Windows PowerShell
 
 ~~~powershell
+py -3.13 --version
 py -3.13 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe -m assessment_etl load .\Technical_Assessment\Sample_Data.xlsx
-.\.venv\Scripts\python.exe -m assessment_etl forecast --horizon 26 --report .\reports\forecast_evaluation.json
-.\.venv\Scripts\python.exe -m assessment_etl kpi --weeks 13 --report .\reports\kpi_summary.json
+.\.venv\Scripts\python.exe -m assessment_etl forecast --horizon 26 --report .\data\forecast_evaluation.json
+.\.venv\Scripts\python.exe -m assessment_etl kpi --weeks 13 --report .\data\kpi_summary.json
 .\.venv\Scripts\python.exe -m assessment_etl status
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
 .\.venv\Scripts\python.exe -m streamlit run .\dashboard\app.py
 ~~~
 
-Streamlit prints a local URL, normally `http://localhost:8501`. The app reads
-`data/assessment.sqlite` by default. Set `DASHBOARD_DB` to another SQLite file
-before launching if needed. The app opens the database read-only and does not
-run the ETL or retrain models during page loads.
+Open the local URL printed by Streamlit, normally `http://localhost:8501`.
+Stop the server with Ctrl+C. The forecast command backtests multiple models
+and can take several minutes. It saves its selected model and the next 26
+weeks of predictions in the local SQLite database. The dashboard reads that
+database read-only; refreshing the page does not rerun ingestion or training.
 
-SQLite is included with Python. The optional sqlite3 command-line program
-can also inspect the generated file:
+### macOS or Linux shell
+
+Use these equivalent commands if Python 3.13 is available as `python3.13`:
+
+~~~bash
+python3.13 -m venv .venv
+./.venv/bin/python -m pip install -r requirements.txt
+./.venv/bin/python -m assessment_etl load ./Technical_Assessment/Sample_Data.xlsx
+./.venv/bin/python -m assessment_etl forecast --horizon 26 --report ./data/forecast_evaluation.json
+./.venv/bin/python -m assessment_etl kpi --weeks 13 --report ./data/kpi_summary.json
+./.venv/bin/python -m assessment_etl status
+./.venv/bin/python -m unittest discover -s tests -v
+./.venv/bin/python -m streamlit run ./dashboard/app.py
+~~~
+
+The first load creates `data/assessment.sqlite` and stores the exact workbook
+bytes plus all parsed raw rows before the clean fact load. A fresh run should
+show 7,839 raw rows, 7,800 cleaned product-week rows, 30 products, and 39
+equivalent duplicate rows. The forecast should add 780 future rows (30
+products × 26 weeks) to `vw_latest_demand_forecast`. The 13-week KPI report
+should show revenue of 16,042,252.47 and gross margin of 21.49% in the
+source's unspecified currency. These checks make it easy to spot an incomplete
+run. Forecast run IDs can differ from the committed example report because
+the local database starts empty.
+
+Rerunning `load` for the same workbook is safe: its file hash is recognized
+and no duplicate facts are inserted. The forecast command likewise reuses an
+existing result for unchanged data and configuration. The local JSON reports
+under `data/` are generated outputs and are ignored by Git.
+
+The optional sqlite3 command-line program can inspect the generated file:
 
 ~~~powershell
 sqlite3 .\data\assessment.sqlite ".tables"
@@ -67,10 +114,9 @@ An alternative database path can be passed before the command:
 ~~~
 
 The database file and virtual environment are generated artifacts and are
-excluded by .gitignore. The supplied assessment files are also kept out of
-Git until their publication status is decided. The SQL schema and pipeline
-source are versioned. The sample-specific integration check is skipped if
-the supplied workbook is not present.
+excluded by .gitignore. The sample workbook is versioned so the full local
+workflow can be reproduced after a fresh checkout. The assessment instruction
+PDF is not versioned. The SQL schema and pipeline source are versioned.
 
 ## Excel input contract
 
@@ -261,7 +307,7 @@ workbook. Opening inventory does not give average inventory or in-week
 receipts, and no receivables or customer payment records are supplied. The
 source inventory-turnover ratio is retained but its calculation is unknown.
 
-## Streamlit dashboard and deployment data
+## Streamlit dashboard
 
 The dashboard has observed revenue, gross margin, period growth, and sales
 volume; a product filter; historical and forecast charts; latest-week opening
@@ -271,7 +317,16 @@ specified. Product forecast error bands are descriptive and are not added to
 make a portfolio uncertainty band. The forecast is a proxy for recorded sales,
 not a measure of sales lost to unavailable inventory.
 
-To export a small, portable copy of the dashboard views:
+The app uses the local `data/assessment.sqlite` produced by the commands
+above. To point it at another SQLite file, set `DASHBOARD_DB` before starting
+Streamlit. For example, in PowerShell:
+
+~~~powershell
+$env:DASHBOARD_DB = (Resolve-Path .\data\assessment.sqlite).Path
+.\.venv\Scripts\python.exe -m streamlit run .\dashboard\app.py
+~~~
+
+An optional portable copy of the three dashboard views can be created with:
 
 ~~~powershell
 .\.venv\Scripts\python.exe -m dashboard.export_snapshot
@@ -280,18 +335,9 @@ To export a small, portable copy of the dashboard views:
 This creates `dashboard/data/assessment_snapshot.sqlite` with only three
 tables: portfolio KPIs, product KPIs, and the latest demand forecast. It does
 not include the source workbook, raw rows, quality issues, or backtest records.
-The snapshot still contains assessment-derived data. It is ignored by Git by
-default; decide whether the repository and dashboard should expose those rows
-before publishing it. If the operational database is absent, the dashboard
-falls back to this snapshot. `DASHBOARD_DB` takes precedence over both paths.
-
-The repository can be pushed and GitHub Actions can test the code without any
-dataset. A hosted dashboard showing the actual assessment values needs the
-snapshot in the deployment repository, or another explicitly configured data
-source. On Streamlit Community Cloud, choose the personal GitHub repository,
-set the entrypoint to `dashboard/app.py`, and select Python 3.13. The app can
-only read files accessible in the deployed environment; a local SQLite file
-on this computer is not automatically available in the cloud.
+The snapshot is ignored by Git. It is not needed for the local walkthrough.
+If the operational database is absent, the dashboard can fall back to this
+snapshot. `DASHBOARD_DB` takes precedence over both paths.
 
 ## Next stage
 

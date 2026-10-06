@@ -4,7 +4,9 @@ __pycache__/
 .pytest_cache/
 data/*.sqlite
 data/*.sqlite-*
+data/*.json
 dashboard/data/*.sqlite
 dashboard/data/*.sqlite-*
 Technical_Assessment/*.xlsx
+!Technical_Assessment/Sample_Data.xlsx
 Technical_Assessment/*.pdf
