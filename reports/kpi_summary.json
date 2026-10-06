@@ -1,0 +1,195 @@
+{
+  "max_observed_week": 260,
+  "product_count": 30,
+  "all_history": {
+    "start_week": 1,
+    "end_week": 260,
+    "expected_week_count": 260,
+    "observed_week_count": 260,
+    "product_week_rows": 7800,
+    "expected_product_week_rows": 7800,
+    "complete_panel": true,
+    "sales_units": 9741185,
+    "revenue": 314978072.24,
+    "cost_of_goods_sold": 247142941.51,
+    "gross_profit": 67835130.73,
+    "gross_profit_margin_pct": 21.54,
+    "operating_profit": 36906208.77,
+    "operating_profit_margin_pct": 11.72,
+    "operating_profit_rows": 7800,
+    "operating_profit_coverage_pct": 100.0,
+    "inventory_rows": 7800,
+    "inventory_coverage_pct": 100.0,
+    "recovered_sales_rows": 16
+  },
+  "recent_period": {
+    "start_week": 248,
+    "end_week": 260,
+    "expected_week_count": 13,
+    "observed_week_count": 13,
+    "product_week_rows": 390,
+    "expected_product_week_rows": 390,
+    "complete_panel": true,
+    "sales_units": 489871,
+    "revenue": 16042252.47,
+    "cost_of_goods_sold": 12595003.25,
+    "gross_profit": 3447249.22,
+    "gross_profit_margin_pct": 21.49,
+    "operating_profit": 1877202.43,
+    "operating_profit_margin_pct": 11.7,
+    "operating_profit_rows": 390,
+    "operating_profit_coverage_pct": 100.0,
+    "inventory_rows": 390,
+    "inventory_coverage_pct": 100.0,
+    "recovered_sales_rows": 0
+  },
+  "previous_equal_length_period": {
+    "start_week": 235,
+    "end_week": 247,
+    "expected_week_count": 13,
+    "observed_week_count": 13,
+    "product_week_rows": 390,
+    "expected_product_week_rows": 390,
+    "complete_panel": true,
+    "sales_units": 478357,
+    "revenue": 15561530.69,
+    "cost_of_goods_sold": 12247118.14,
+    "gross_profit": 3314412.55,
+    "gross_profit_margin_pct": 21.3,
+    "operating_profit": 1797732.15,
+    "operating_profit_margin_pct": 11.55,
+    "operating_profit_rows": 390,
+    "operating_profit_coverage_pct": 100.0,
+    "inventory_rows": 390,
+    "inventory_coverage_pct": 100.0,
+    "recovered_sales_rows": 0
+  },
+  "recent_revenue_growth_vs_previous_pct": 3.09,
+  "latest_week": {
+    "week_id": 260,
+    "relative_year": 5,
+    "week_in_year": 52,
+    "product_rows": 30,
+    "sales_units": 38355,
+    "cost_of_goods_sold": 1024865.96,
+    "revenue": 1315381.88,
+    "gross_profit": 290515.92,
+    "gross_profit_margin": 0.22086051542689641,
+    "operating_profit": 164822.43,
+    "operating_profit_margin": 0.12530386232779792,
+    "revenue_growth": -0.15430432304317412,
+    "operating_profit_rows": 30,
+    "inventory_rows": 30,
+    "zero_opening_inventory_rows": 8,
+    "sales_exceed_opening_inventory_rows": 9,
+    "recovered_sales_rows": 0
+  },
+  "lowest_latest_opening_stock_cover": [
+    {
+      "product_name": "Canned Tuna",
+      "sales_units": 2500,
+      "opening_inventory_units": 0,
+      "opening_stock_cover_days_proxy": 0.0,
+      "sales_exceed_opening_inventory": 1
+    },
+    {
+      "product_name": "Corn",
+      "sales_units": 1500,
+      "opening_inventory_units": 0,
+      "opening_stock_cover_days_proxy": 0.0,
+      "sales_exceed_opening_inventory": 1
+    },
+    {
+      "product_name": "Milk Powder - Skimmed",
+      "sales_units": 1500,
+      "opening_inventory_units": 0,
+      "opening_stock_cover_days_proxy": 0.0,
+      "sales_exceed_opening_inventory": 1
+    },
+    {
+      "product_name": "Oats",
+      "sales_units": 2500,
+      "opening_inventory_units": 0,
+      "opening_stock_cover_days_proxy": 0.0,
+      "sales_exceed_opening_inventory": 1
+    },
+    {
+      "product_name": "Salt - Iodized",
+      "sales_units": 2500,
+      "opening_inventory_units": 0,
+      "opening_stock_cover_days_proxy": 0.0,
+      "sales_exceed_opening_inventory": 1
+    }
+  ],
+  "top_recent_products_by_revenue": [
+    {
+      "product_name": "Lentils - Red",
+      "observed_weeks": 13,
+      "sales_units": 20584,
+      "revenue": 1280688.26,
+      "gross_profit_margin_pct": 21.53
+    },
+    {
+      "product_name": "Palm Oil",
+      "observed_weeks": 13,
+      "sales_units": 22786,
+      "revenue": 1272743.34,
+      "gross_profit_margin_pct": 20.91
+    },
+    {
+      "product_name": "Lentils - Green",
+      "observed_weeks": 13,
+      "sales_units": 19000,
+      "revenue": 1018143.66,
+      "gross_profit_margin_pct": 20.3
+    },
+    {
+      "product_name": "Oats",
+      "observed_weeks": 13,
+      "sales_units": 18581,
+      "revenue": 945772.93,
+      "gross_profit_margin_pct": 20.94
+    },
+    {
+      "product_name": "Soybean Oil",
+      "observed_weeks": 13,
+      "sales_units": 22775,
+      "revenue": 919985.95,
+      "gross_profit_margin_pct": 20.73
+    }
+  ],
+  "kpi_availability": {
+    "gross_profit_margin": {
+      "status": "calculated",
+      "reason": "Gross profit divided by revenue, using sums for aggregated margins."
+    },
+    "revenue_growth": {
+      "status": "calculated",
+      "reason": "Compared with the immediately preceding week or complete equal-length period."
+    },
+    "operating_profit": {
+      "status": "source_reported",
+      "reason": "Operating expenses are absent; an incomplete group has no total."
+    },
+    "inventory_turnover_ratio": {
+      "status": "source_unverified",
+      "reason": "The workbook does not define its calculation period or inventory basis."
+    },
+    "opening_stock_cover_days_proxy": {
+      "status": "proxy",
+      "reason": "Seven times opening units divided by observed sales units for that week."
+    },
+    "days_sales_of_inventory": {
+      "status": "unavailable",
+      "reason": "Average inventory, replenishment timing, and a defined turnover period are absent."
+    },
+    "days_sales_outstanding": {
+      "status": "unavailable",
+      "reason": "Receivables balances and payment dates are absent."
+    },
+    "customer_default_risk_rating": {
+      "status": "unavailable",
+      "reason": "Customer identities, credit exposure, and repayment outcomes are absent."
+    }
+  }
+}

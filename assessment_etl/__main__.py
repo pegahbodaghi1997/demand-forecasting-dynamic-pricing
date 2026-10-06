@@ -27,6 +27,11 @@ def main() -> None:
     forecast.add_argument(
         "--report", type=Path, help="Optional JSON path for the evaluation report"
     )
+    kpi = subcommands.add_parser("kpi", help="Summarize historical business KPIs")
+    kpi.add_argument(
+        "--weeks", type=int, default=13, help="Length of the recent comparison period"
+    )
+    kpi.add_argument("--report", type=Path, help="Optional JSON path for the KPI report")
     args = parser.parse_args()
 
     if args.command == "load":
@@ -40,6 +45,15 @@ def main() -> None:
             report = {key: value for key, value in result.items() if key != "skipped_existing"}
             args.report.write_text(
                 json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+    elif args.command == "kpi":
+        from .kpis import build_kpi_report
+
+        result = build_kpi_report(args.db, trailing_weeks=args.weeks)
+        if args.report:
+            args.report.parent.mkdir(parents=True, exist_ok=True)
+            args.report.write_text(
+                json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8"
             )
     else:
         result = database_summary(args.db)

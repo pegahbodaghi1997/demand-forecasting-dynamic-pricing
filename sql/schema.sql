@@ -123,6 +123,104 @@ FROM financials AS f
 JOIN dim_product AS p ON p.product_id = f.product_id
 JOIN dim_week AS w ON w.week_id = f.week_id;
 
+-- Dashboard-ready weekly product KPIs. Opening stock cover is a historical
+-- proxy based on one week's observed sales, not formal DSI or a stockout claim.
+CREATE VIEW IF NOT EXISTS vw_kpi_product_week AS
+SELECT
+    f.product_id,
+    p.product_name,
+    f.week_id,
+    w.relative_year,
+    w.week_in_year,
+    f.sales_units,
+    f.opening_inventory_units,
+    f.unit_cost_cents / 100.0 AS unit_cost,
+    f.unit_price_cents / 100.0 AS unit_price,
+    f.sales_units * f.unit_cost_cents / 100.0 AS cost_of_goods_sold,
+    f.revenue_cents / 100.0 AS revenue,
+    f.gross_profit_cents / 100.0 AS gross_profit,
+    CASE WHEN f.revenue_cents > 0
+        THEN 1.0 * f.gross_profit_cents / f.revenue_cents
+    END AS gross_profit_margin,
+    f.operating_profit_cents / 100.0 AS operating_profit,
+    CASE WHEN f.revenue_cents > 0 AND f.operating_profit_cents IS NOT NULL
+        THEN 1.0 * f.operating_profit_cents / f.revenue_cents
+    END AS operating_profit_margin,
+    CASE WHEN prior.revenue_cents > 0
+        THEN 1.0 * (f.revenue_cents - prior.revenue_cents) / prior.revenue_cents
+    END AS revenue_growth,
+    CASE WHEN f.sales_units > 0 AND f.opening_inventory_units IS NOT NULL
+        THEN 7.0 * f.opening_inventory_units / f.sales_units
+    END AS opening_stock_cover_days_proxy,
+    CASE WHEN f.opening_inventory_units IS NOT NULL
+                   AND f.sales_units > f.opening_inventory_units
+        THEN 1 ELSE 0
+    END AS sales_exceed_opening_inventory,
+    f.turnover_ratio_source,
+    f.sales_recovered,
+    f.source_run_id
+FROM fact_weekly_product AS f
+JOIN dim_product AS p ON p.product_id = f.product_id
+JOIN dim_week AS w ON w.week_id = f.week_id
+LEFT JOIN fact_weekly_product AS prior
+  ON prior.product_id = f.product_id AND prior.week_id = f.week_id - 1;
+
+-- Portfolio margins are ratios of summed cents, never averages of SKU margins.
+-- Operating profit is NULL when even one product's value is unavailable.
+CREATE VIEW IF NOT EXISTS vw_kpi_portfolio_week AS
+WITH totals AS (
+    SELECT
+        week_id,
+        COUNT(*) AS product_rows,
+        SUM(sales_units) AS sales_units,
+        SUM(sales_units * unit_cost_cents) AS cost_of_goods_sold_cents,
+        SUM(revenue_cents) AS revenue_cents,
+        SUM(gross_profit_cents) AS gross_profit_cents,
+        SUM(operating_profit_cents) AS available_operating_profit_cents,
+        SUM(CASE WHEN operating_profit_cents IS NOT NULL THEN 1 ELSE 0 END)
+            AS operating_profit_rows,
+        SUM(CASE WHEN opening_inventory_units IS NOT NULL THEN 1 ELSE 0 END)
+            AS inventory_rows,
+        SUM(CASE WHEN opening_inventory_units = 0 THEN 1 ELSE 0 END)
+            AS zero_opening_inventory_rows,
+        SUM(CASE WHEN opening_inventory_units IS NOT NULL
+                      AND sales_units > opening_inventory_units THEN 1 ELSE 0 END)
+            AS sales_exceed_opening_inventory_rows,
+        SUM(sales_recovered) AS recovered_sales_rows
+    FROM fact_weekly_product
+    GROUP BY week_id
+)
+SELECT
+    t.week_id,
+    w.relative_year,
+    w.week_in_year,
+    t.product_rows,
+    t.sales_units,
+    t.cost_of_goods_sold_cents / 100.0 AS cost_of_goods_sold,
+    t.revenue_cents / 100.0 AS revenue,
+    t.gross_profit_cents / 100.0 AS gross_profit,
+    CASE WHEN t.revenue_cents > 0
+        THEN 1.0 * t.gross_profit_cents / t.revenue_cents
+    END AS gross_profit_margin,
+    CASE WHEN t.operating_profit_rows = t.product_rows
+        THEN t.available_operating_profit_cents / 100.0
+    END AS operating_profit,
+    CASE WHEN t.operating_profit_rows = t.product_rows AND t.revenue_cents > 0
+        THEN 1.0 * t.available_operating_profit_cents / t.revenue_cents
+    END AS operating_profit_margin,
+    CASE WHEN previous.revenue_cents > 0
+        THEN 1.0 * (t.revenue_cents - previous.revenue_cents)
+             / previous.revenue_cents
+    END AS revenue_growth,
+    t.operating_profit_rows,
+    t.inventory_rows,
+    t.zero_opening_inventory_rows,
+    t.sales_exceed_opening_inventory_rows,
+    t.recovered_sales_rows
+FROM totals AS t
+JOIN dim_week AS w ON w.week_id = t.week_id
+LEFT JOIN totals AS previous ON previous.week_id = t.week_id - 1;
+
 -- Forecasts are versioned and never inserted into the historical sales fact.
 CREATE TABLE IF NOT EXISTS forecast_run (
     forecast_run_id INTEGER PRIMARY KEY,

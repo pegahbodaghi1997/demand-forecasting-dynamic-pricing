@@ -1,10 +1,11 @@
 # Weekly commodity data pipeline
 
-This project implements the data engineering and demand forecasting stages of the technical assessment.
+This project implements the data engineering, demand forecasting, and
+historical KPI stages of the technical assessment.
 It archives each input Excel workbook in SQLite, retains every parsed data row in
 a raw table, validates and cleans the rows, and loads a small star schema. The
-default generated database path is data/assessment.sqlite. The KPI layer and
-dashboard are the next stages.
+default generated database path is data/assessment.sqlite. The interactive
+dashboard and dynamic pricing strategy are the next stages.
 
 ## Data flow
 
@@ -17,14 +18,12 @@ Excel workbook (.xlsx / .xlsm)
                                 |-- conflicting product/week rows rejected
                                 v
                     dim_product + dim_week + fact_weekly_product
-                                               |
-                         +---------------------+--------------------+
-                         |                                          |
-                         v                                          v
-                  vw_weekly_kpi                          forecasting backtests
-                                                               |
-                                                               v
-                                         forecast_run + fact_demand_forecast
+                                |                       |
+                                v                       v
+                      vw_weekly_kpi + vw_kpi_*   forecasting backtests
+                                |                       |
+                                v                       v
+                      historical KPI report   forecast_run + fact_demand_forecast
 ~~~
 
 The workbook archive and raw rows are committed before the clean load. If
@@ -42,6 +41,7 @@ py -3.13 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe -m assessment_etl load .\Technical_Assessment\Sample_Data.xlsx
 .\.venv\Scripts\python.exe -m assessment_etl forecast --horizon 26 --report .\reports\forecast_evaluation.json
+.\.venv\Scripts\python.exe -m assessment_etl kpi --weeks 13 --report .\reports\kpi_summary.json
 .\.venv\Scripts\python.exe -m assessment_etl status
 ~~~
 
@@ -102,6 +102,8 @@ archived.
 | dim_week | Relative week number and derived 52-week cycle position. |
 | fact_weekly_product | One cleaned row per product/week, with source row provenance. |
 | vw_weekly_kpi | Human-scale monetary values, margin, and revenue growth. |
+| vw_kpi_product_week | Historical product-level financial KPIs and a labeled opening stock-cover proxy. |
+| vw_kpi_portfolio_week | Weekly portfolio totals, weighted margins, adjacent-week growth, and data coverage. |
 | forecast_run | Model choice, data hash, parameters, and development/holdout metrics. |
 | forecast_backtest | Predictions and actual sales for each method and historical test window. |
 | fact_demand_forecast | Versioned future predictions and empirical error bands. |
@@ -154,7 +156,9 @@ Run the integration checks:
 The checks cover exact workbook archive bytes, raw and fact row counts,
 idempotent reloads, reordered and aliased headers, additional columns,
 recovered sales, malformed rows, conflicting duplicates, later-file updates,
-and archival of an unreadable workbook. Forecast checks verify that future
+and archival of an unreadable workbook. KPI checks verify weighted margins,
+partial operating-profit coverage, zero denominators, and missing-week
+growth. Forecast checks verify that future
 sales and prices cannot enter features, MAPE excludes zero actuals, and
 forecasts remain separate from actual sales.
 
@@ -226,8 +230,29 @@ method-by-method decision guidance in reports/forecast_summary.md. The
 final forecast contains 780 rows for 30 products and weeks 261-286.
 Forecasts are stored separately from actual sales and versioned by run.
 
+## Historical KPI layer
+
+The KPI views read actual fact rows only. `vw_kpi_product_week` exposes
+revenue, cost of goods sold, gross and source-reported operating profit,
+their margins, adjacent-week revenue growth, and a clearly labeled opening
+stock-cover proxy. `vw_kpi_portfolio_week` sums money in integer cents before
+computing portfolio margins. It leaves operating profit NULL if any product
+value is missing, and includes row-coverage counts for dashboard display.
+
+The `kpi` command compares the latest 13 observed weeks with the preceding
+13 weeks only when both periods have complete product-week coverage. For the
+sample, recent revenue is 16,042,252.47 in the source's unspecified currency,
+up 3.09% from the previous 13 weeks; recent gross margin is 21.49%.
+`reports/kpi_summary.json` holds the numbers and coverage counts, while
+`reports/kpi_definitions.md` gives formulas and data limitations.
+
+Formal DSI, DSO, and customer default risk cannot be established from this
+workbook. Opening inventory does not give average inventory or in-week
+receipts, and no receivables or customer payment records are supplied. The
+source inventory-turnover ratio is retained but its calculation is unknown.
+
 ## Next stage
 
-Define and compute the financial, operational, and sales/credit KPIs that
-the data can support, then build the interactive dashboard around those
-definitions and the versioned forecast.
+Build the interactive dashboard around these KPI views and the versioned
+forecast. The following stage defines a dynamic pricing strategy with
+margin, inventory, demand, and credit-risk guardrails where data permits.
