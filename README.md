@@ -1,11 +1,12 @@
 # Weekly commodity data pipeline
 
-This project implements the data engineering, demand forecasting, and
-historical KPI stages of the technical assessment.
+This project implements the data engineering, demand forecasting, historical
+KPI, and interactive dashboard stages of the technical assessment.
 It archives each input Excel workbook in SQLite, retains every parsed data row in
 a raw table, validates and cleans the rows, and loads a small star schema. The
-default generated database path is data/assessment.sqlite. The interactive
-dashboard and dynamic pricing strategy are the next stages.
+default generated database path is data/assessment.sqlite. The Streamlit
+dashboard reads the KPI views and latest forecast. The dynamic pricing
+strategy is the next stage.
 
 ## Data flow
 
@@ -43,7 +44,13 @@ py -3.13 -m venv .venv
 .\.venv\Scripts\python.exe -m assessment_etl forecast --horizon 26 --report .\reports\forecast_evaluation.json
 .\.venv\Scripts\python.exe -m assessment_etl kpi --weeks 13 --report .\reports\kpi_summary.json
 .\.venv\Scripts\python.exe -m assessment_etl status
+.\.venv\Scripts\python.exe -m streamlit run .\dashboard\app.py
 ~~~
+
+Streamlit prints a local URL, normally `http://localhost:8501`. The app reads
+`data/assessment.sqlite` by default. Set `DASHBOARD_DB` to another SQLite file
+before launching if needed. The app opens the database read-only and does not
+run the ETL or retrain models during page loads.
 
 SQLite is included with Python. The optional sqlite3 command-line program
 can also inspect the generated file:
@@ -160,7 +167,10 @@ and archival of an unreadable workbook. KPI checks verify weighted margins,
 partial operating-profit coverage, zero denominators, and missing-week
 growth. Forecast checks verify that future
 sales and prices cannot enter features, MAPE excludes zero actuals, and
-forecasts remain separate from actual sales.
+forecasts remain separate from actual sales. Dashboard checks build a synthetic
+workbook and forecast, export a portable snapshot, and render the Streamlit
+app with its filters. GitHub Actions runs these checks on push and pull request
+without needing the supplied assessment files.
 
 Useful SQLite queries:
 
@@ -251,8 +261,39 @@ workbook. Opening inventory does not give average inventory or in-week
 receipts, and no receivables or customer payment records are supplied. The
 source inventory-turnover ratio is retained but its calculation is unknown.
 
+## Streamlit dashboard and deployment data
+
+The dashboard has observed revenue, gross margin, period growth, and sales
+volume; a product filter; historical and forecast charts; latest-week opening
+inventory diagnostics; data coverage; and an export of selected historical
+rows. All displayed money is in source currency units, whose currency was not
+specified. Product forecast error bands are descriptive and are not added to
+make a portfolio uncertainty band. The forecast is a proxy for recorded sales,
+not a measure of sales lost to unavailable inventory.
+
+To export a small, portable copy of the dashboard views:
+
+~~~powershell
+.\.venv\Scripts\python.exe -m dashboard.export_snapshot
+~~~
+
+This creates `dashboard/data/assessment_snapshot.sqlite` with only three
+tables: portfolio KPIs, product KPIs, and the latest demand forecast. It does
+not include the source workbook, raw rows, quality issues, or backtest records.
+The snapshot still contains assessment-derived data. It is ignored by Git by
+default; decide whether the repository and dashboard should expose those rows
+before publishing it. If the operational database is absent, the dashboard
+falls back to this snapshot. `DASHBOARD_DB` takes precedence over both paths.
+
+The repository can be pushed and GitHub Actions can test the code without any
+dataset. A hosted dashboard showing the actual assessment values needs the
+snapshot in the deployment repository, or another explicitly configured data
+source. On Streamlit Community Cloud, choose the personal GitHub repository,
+set the entrypoint to `dashboard/app.py`, and select Python 3.13. The app can
+only read files accessible in the deployed environment; a local SQLite file
+on this computer is not automatically available in the cloud.
+
 ## Next stage
 
-Build the interactive dashboard around these KPI views and the versioned
-forecast. The following stage defines a dynamic pricing strategy with
-margin, inventory, demand, and credit-risk guardrails where data permits.
+Define a dynamic pricing strategy with margin, inventory, demand, and
+credit-risk guardrails where data permits.
