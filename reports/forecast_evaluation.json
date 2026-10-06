@@ -1,5 +1,5 @@
 {
-  "forecast_run_id": 1,
+  "forecast_run_id": 2,
   "input_max_week": 260,
   "horizon_weeks": 26,
   "backtest_origins": [
@@ -8,9 +8,64 @@
     208,
     234
   ],
-  "selected_method": "gbdt_mae",
+  "selected_method": "forest_rmse",
   "selection_rule": "Lowest pooled MAE on the first three 26-week backtests; prefer the best baseline when it is within 1% of the best learned model. The final 26-week backtest is reported without influencing selection.",
+  "method_guidance": {
+    "seasonal_52": "Choose when yearly repetition and a transparent rule matter, if its error is acceptable.",
+    "recent_13_mean": "Choose when recent sales level matters more than yearly seasonality and simplicity is valuable.",
+    "gbdt_mae": "Choose for smaller typical unit errors when large misses have no extra penalty.",
+    "gbdt_rmse": "Choose when large misses are especially costly in either direction.",
+    "gbdt_poisson": "Choose for nonnegative count-like demand if its measured accuracy is competitive.",
+    "gbdt_q25": "Choose a lower forecast when excess stock is much more costly than shortages.",
+    "gbdt_q75": "Choose a higher forecast when shortages are much more costly than excess stock.",
+    "forest_mae": "Choose a bagged-tree alternative for typical unit error if it improves validation MAE.",
+    "forest_rmse": "Choose a bagged-tree alternative if reducing large misses improves validation RMSE.",
+    "forest_poisson": "Choose a bagged-tree count-demand alternative if its validation errors are competitive."
+  },
+  "method_objectives": {
+    "seasonal_52": "Comparable week 52 weeks earlier",
+    "recent_13_mean": "Mean of 13 observed weeks",
+    "gbdt_mae": "Histogram gradient boosting: absolute_error loss",
+    "gbdt_rmse": "Histogram gradient boosting: squared_error loss",
+    "gbdt_poisson": "Histogram gradient boosting: poisson loss",
+    "gbdt_q25": "Histogram gradient boosting: quantile loss at 0.25",
+    "gbdt_q75": "Histogram gradient boosting: quantile loss at 0.75",
+    "forest_mae": "Random forest: absolute_error split criterion",
+    "forest_rmse": "Random forest: squared_error split criterion",
+    "forest_poisson": "Random forest: poisson split criterion"
+  },
+  "evaluation_caveat": "The final historical window was inspected in an earlier project iteration. It is a retrospective check, not a fresh untouched holdout for this expanded comparison.",
   "development_metrics": {
+    "forest_mae": {
+      "bias_units": 235.877,
+      "mae": 608.135,
+      "mape_coverage_pct": 81.58,
+      "mape_positive_pct": 67.521,
+      "observations": 2340,
+      "rmse": 863.611,
+      "wape_pct": 47.704,
+      "zero_actuals": 431
+    },
+    "forest_poisson": {
+      "bias_units": -3.413,
+      "mae": 613.103,
+      "mape_coverage_pct": 81.58,
+      "mape_positive_pct": 60.666,
+      "observations": 2340,
+      "rmse": 814.19,
+      "wape_pct": 48.093,
+      "zero_actuals": 431
+    },
+    "forest_rmse": {
+      "bias_units": 16.007,
+      "mae": 605.651,
+      "mape_coverage_pct": 81.58,
+      "mape_positive_pct": 60.108,
+      "observations": 2340,
+      "rmse": 813.953,
+      "wape_pct": 47.509,
+      "zero_actuals": 431
+    },
     "gbdt_mae": {
       "bias_units": 77.97,
       "mae": 640.349,
@@ -19,6 +74,36 @@
       "observations": 2340,
       "rmse": 895.577,
       "wape_pct": 50.231,
+      "zero_actuals": 431
+    },
+    "gbdt_poisson": {
+      "bias_units": 3.044,
+      "mae": 663.952,
+      "mape_coverage_pct": 81.58,
+      "mape_positive_pct": 69.034,
+      "observations": 2340,
+      "rmse": 888.081,
+      "wape_pct": 52.082,
+      "zero_actuals": 431
+    },
+    "gbdt_q25": {
+      "bias_units": -480.365,
+      "mae": 790.841,
+      "mape_coverage_pct": 81.58,
+      "mape_positive_pct": 67.093,
+      "observations": 2340,
+      "rmse": 1038.689,
+      "wape_pct": 62.036,
+      "zero_actuals": 431
+    },
+    "gbdt_q75": {
+      "bias_units": 481.098,
+      "mae": 672.553,
+      "mape_coverage_pct": 81.58,
+      "mape_positive_pct": 75.601,
+      "observations": 2340,
+      "rmse": 995.213,
+      "wape_pct": 52.757,
       "zero_actuals": 431
     },
     "gbdt_rmse": {
@@ -53,6 +138,36 @@
     }
   },
   "holdout_metrics": {
+    "forest_mae": {
+      "bias_units": 118.468,
+      "mae": 452.517,
+      "mape_coverage_pct": 86.79,
+      "mape_positive_pct": 89.177,
+      "observations": 780,
+      "rmse": 702.245,
+      "wape_pct": 36.455,
+      "zero_actuals": 103
+    },
+    "forest_poisson": {
+      "bias_units": 11.417,
+      "mae": 496.634,
+      "mape_coverage_pct": 86.79,
+      "mape_positive_pct": 85.825,
+      "observations": 780,
+      "rmse": 690.426,
+      "wape_pct": 40.009,
+      "zero_actuals": 103
+    },
+    "forest_rmse": {
+      "bias_units": 30.691,
+      "mae": 488.001,
+      "mape_coverage_pct": 86.79,
+      "mape_positive_pct": 85.098,
+      "observations": 780,
+      "rmse": 691.378,
+      "wape_pct": 39.313,
+      "zero_actuals": 103
+    },
     "gbdt_mae": {
       "bias_units": 156.063,
       "mae": 456.876,
@@ -61,6 +176,36 @@
       "observations": 780,
       "rmse": 710.635,
       "wape_pct": 36.806,
+      "zero_actuals": 103
+    },
+    "gbdt_poisson": {
+      "bias_units": 30.002,
+      "mae": 496.731,
+      "mape_coverage_pct": 86.79,
+      "mape_positive_pct": 86.158,
+      "observations": 780,
+      "rmse": 690.062,
+      "wape_pct": 40.016,
+      "zero_actuals": 103
+    },
+    "gbdt_q25": {
+      "bias_units": -405.45,
+      "mae": 644.637,
+      "mape_coverage_pct": 86.79,
+      "mape_positive_pct": 78.241,
+      "observations": 780,
+      "rmse": 849.721,
+      "wape_pct": 51.932,
+      "zero_actuals": 103
+    },
+    "gbdt_q75": {
+      "bias_units": 410.635,
+      "mae": 533.213,
+      "mape_coverage_pct": 86.79,
+      "mape_positive_pct": 103.66,
+      "observations": 780,
+      "rmse": 860.624,
+      "wape_pct": 42.955,
       "zero_actuals": 103
     },
     "gbdt_rmse": {
@@ -262,28 +407,280 @@
         "wape_pct": 39.557,
         "bias_units": 61.661
       }
+    ],
+    "gbdt_poisson": [
+      {
+        "observations": 780,
+        "zero_actuals": 165,
+        "mae": 685.39,
+        "rmse": 919.102,
+        "mape_positive_pct": 102.374,
+        "mape_coverage_pct": 78.85,
+        "wape_pct": 53.669,
+        "bias_units": 72.92
+      },
+      {
+        "observations": 780,
+        "zero_actuals": 113,
+        "mae": 591.211,
+        "rmse": 842.415,
+        "mape_positive_pct": 65.708,
+        "mape_coverage_pct": 85.51,
+        "wape_pct": 49.398,
+        "bias_units": 139.965
+      },
+      {
+        "observations": 780,
+        "zero_actuals": 153,
+        "mae": 715.256,
+        "rmse": 900.918,
+        "mape_positive_pct": 39.869,
+        "mape_coverage_pct": 80.38,
+        "wape_pct": 52.961,
+        "bias_units": -203.755
+      },
+      {
+        "observations": 780,
+        "zero_actuals": 103,
+        "mae": 496.731,
+        "rmse": 690.062,
+        "mape_positive_pct": 86.158,
+        "mape_coverage_pct": 86.79,
+        "wape_pct": 40.016,
+        "bias_units": 30.002
+      }
+    ],
+    "gbdt_q25": [
+      {
+        "observations": 780,
+        "zero_actuals": 165,
+        "mae": 785.977,
+        "rmse": 984.927,
+        "mape_positive_pct": 87.206,
+        "mape_coverage_pct": 78.85,
+        "wape_pct": 61.545,
+        "bias_units": -329.798
+      },
+      {
+        "observations": 780,
+        "zero_actuals": 113,
+        "mae": 655.127,
+        "rmse": 874.143,
+        "mape_positive_pct": 57.122,
+        "mape_coverage_pct": 85.51,
+        "wape_pct": 54.738,
+        "bias_units": -337.987
+      },
+      {
+        "observations": 780,
+        "zero_actuals": 153,
+        "mae": 931.419,
+        "rmse": 1225.732,
+        "mape_positive_pct": 57.972,
+        "mape_coverage_pct": 80.38,
+        "wape_pct": 68.967,
+        "bias_units": -773.311
+      },
+      {
+        "observations": 780,
+        "zero_actuals": 103,
+        "mae": 644.637,
+        "rmse": 849.721,
+        "mape_positive_pct": 78.241,
+        "mape_coverage_pct": 86.79,
+        "wape_pct": 51.932,
+        "bias_units": -405.45
+      }
+    ],
+    "gbdt_q75": [
+      {
+        "observations": 780,
+        "zero_actuals": 165,
+        "mae": 777.942,
+        "rmse": 1130.954,
+        "mape_positive_pct": 120.102,
+        "mape_coverage_pct": 78.85,
+        "wape_pct": 60.916,
+        "bias_units": 644.546
+      },
+      {
+        "observations": 780,
+        "zero_actuals": 113,
+        "mae": 571.662,
+        "rmse": 893.913,
+        "mape_positive_pct": 69.099,
+        "mape_coverage_pct": 85.51,
+        "wape_pct": 47.764,
+        "bias_units": 439.855
+      },
+      {
+        "observations": 780,
+        "zero_actuals": 153,
+        "mae": 668.055,
+        "rmse": 945.097,
+        "mape_positive_pct": 38.868,
+        "mape_coverage_pct": 80.38,
+        "wape_pct": 49.466,
+        "bias_units": 358.894
+      },
+      {
+        "observations": 780,
+        "zero_actuals": 103,
+        "mae": 533.213,
+        "rmse": 860.624,
+        "mape_positive_pct": 103.66,
+        "mape_coverage_pct": 86.79,
+        "wape_pct": 42.955,
+        "bias_units": 410.635
+      }
+    ],
+    "forest_mae": [
+      {
+        "observations": 780,
+        "zero_actuals": 165,
+        "mae": 677.887,
+        "rmse": 945.409,
+        "mape_positive_pct": 106.213,
+        "mape_coverage_pct": 78.85,
+        "wape_pct": 53.081,
+        "bias_units": 348.875
+      },
+      {
+        "observations": 780,
+        "zero_actuals": 113,
+        "mae": 539.309,
+        "rmse": 792.585,
+        "mape_positive_pct": 65.681,
+        "mape_coverage_pct": 85.51,
+        "wape_pct": 45.061,
+        "bias_units": 294.803
+      },
+      {
+        "observations": 780,
+        "zero_actuals": 153,
+        "mae": 607.209,
+        "rmse": 845.861,
+        "mape_positive_pct": 31.526,
+        "mape_coverage_pct": 80.38,
+        "wape_pct": 44.961,
+        "bias_units": 63.953
+      },
+      {
+        "observations": 780,
+        "zero_actuals": 103,
+        "mae": 452.517,
+        "rmse": 702.245,
+        "mape_positive_pct": 89.177,
+        "mape_coverage_pct": 86.79,
+        "wape_pct": 36.455,
+        "bias_units": 118.468
+      }
+    ],
+    "forest_rmse": [
+      {
+        "observations": 780,
+        "zero_actuals": 165,
+        "mae": 638.48,
+        "rmse": 862.839,
+        "mape_positive_pct": 87.653,
+        "mape_coverage_pct": 78.85,
+        "wape_pct": 49.995,
+        "bias_units": 74.623
+      },
+      {
+        "observations": 780,
+        "zero_actuals": 113,
+        "mae": 514.219,
+        "rmse": 717.56,
+        "mape_positive_pct": 57.149,
+        "mape_coverage_pct": 85.51,
+        "wape_pct": 42.965,
+        "bias_units": 80.191
+      },
+      {
+        "observations": 780,
+        "zero_actuals": 153,
+        "mae": 664.254,
+        "rmse": 853.333,
+        "mape_positive_pct": 36.238,
+        "mape_coverage_pct": 80.38,
+        "wape_pct": 49.185,
+        "bias_units": -106.794
+      },
+      {
+        "observations": 780,
+        "zero_actuals": 103,
+        "mae": 488.001,
+        "rmse": 691.378,
+        "mape_positive_pct": 85.098,
+        "mape_coverage_pct": 86.79,
+        "wape_pct": 39.313,
+        "bias_units": 30.691
+      }
+    ],
+    "forest_poisson": [
+      {
+        "observations": 780,
+        "zero_actuals": 165,
+        "mae": 642.101,
+        "rmse": 862.253,
+        "mape_positive_pct": 87.409,
+        "mape_coverage_pct": 78.85,
+        "wape_pct": 50.279,
+        "bias_units": 61.329
+      },
+      {
+        "observations": 780,
+        "zero_actuals": 113,
+        "mae": 522.557,
+        "rmse": 714.511,
+        "mape_positive_pct": 58.32,
+        "mape_coverage_pct": 85.51,
+        "wape_pct": 43.661,
+        "bias_units": 56.881
+      },
+      {
+        "observations": 780,
+        "zero_actuals": 153,
+        "mae": 674.65,
+        "rmse": 857.15,
+        "mape_positive_pct": 36.932,
+        "mape_coverage_pct": 80.38,
+        "wape_pct": 49.954,
+        "bias_units": -128.448
+      },
+      {
+        "observations": 780,
+        "zero_actuals": 103,
+        "mae": 496.634,
+        "rmse": 690.426,
+        "mape_positive_pct": 85.825,
+        "mape_coverage_pct": 86.79,
+        "wape_pct": 40.009,
+        "bias_units": 11.417
+      }
     ]
   },
   "worst_holdout_products": [
     {
       "product": "Wheat - Soft",
-      "mae": 1041.322
-    },
-    {
-      "product": "Sugar - White Refined",
-      "mae": 894.582
-    },
-    {
-      "product": "Yeast - Dry",
-      "mae": 866.703
+      "mae": 1007.182
     },
     {
       "product": "Barley",
-      "mae": 796.774
+      "mae": 918.843
     },
     {
-      "product": "Tea - Black Ceylon",
-      "mae": 769.971
+      "product": "Sugar - White Refined",
+      "mae": 886.197
+    },
+    {
+      "product": "Yeast - Dry",
+      "mae": 810.827
+    },
+    {
+      "product": "Canned Tuna",
+      "mae": 779.49
     }
   ],
   "training_rows": 76440,

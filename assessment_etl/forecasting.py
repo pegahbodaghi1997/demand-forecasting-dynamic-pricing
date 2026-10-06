@@ -11,13 +11,13 @@ from pathlib import Path
 
 import numpy as np
 import sklearn
-from sklearn.ensemble import HistGradientBoostingRegressor
+from sklearn.ensemble import HistGradientBoostingRegressor, RandomForestRegressor
 
 from .pipeline import DEFAULT_DATABASE, connect
 
 
-FEATURE_VERSION = "direct_horizon_v1"
-MODEL_CONFIGS = {
+FEATURE_VERSION = "direct_horizon_v2"
+GBDT_CONFIGS = {
     "gbdt_mae": {
         "loss": "absolute_error",
         "max_iter": 160,
@@ -34,8 +34,83 @@ MODEL_CONFIGS = {
         "min_samples_leaf": 30,
         "l2_regularization": 1.0,
     },
+    "gbdt_poisson": {
+        "loss": "poisson",
+        "max_iter": 160,
+        "learning_rate": 0.06,
+        "max_leaf_nodes": 15,
+        "min_samples_leaf": 30,
+        "l2_regularization": 1.0,
+    },
+    "gbdt_q25": {
+        "loss": "quantile",
+        "quantile": 0.25,
+        "max_iter": 160,
+        "learning_rate": 0.06,
+        "max_leaf_nodes": 15,
+        "min_samples_leaf": 30,
+        "l2_regularization": 1.0,
+    },
+    "gbdt_q75": {
+        "loss": "quantile",
+        "quantile": 0.75,
+        "max_iter": 160,
+        "learning_rate": 0.06,
+        "max_leaf_nodes": 15,
+        "min_samples_leaf": 30,
+        "l2_regularization": 1.0,
+    },
+}
+FOREST_CONFIGS = {
+    "forest_mae": {"criterion": "absolute_error"},
+    "forest_rmse": {"criterion": "squared_error"},
+    "forest_poisson": {"criterion": "poisson"},
+}
+FOREST_SHARED_CONFIG = {
+    "n_estimators": 48,
+    "max_depth": 12,
+    "min_samples_leaf": 20,
+    "max_features": 0.8,
+    "max_samples": 0.25,
+    "random_state": 42,
+    "n_jobs": 4,
+}
+MODEL_CONFIGS = {
+    **GBDT_CONFIGS,
+    **{
+        name: {**FOREST_SHARED_CONFIG, **config}
+        for name, config in FOREST_CONFIGS.items()
+    },
 }
 BASELINE_METHODS = ("seasonal_52", "recent_13_mean")
+METHOD_GUIDANCE = {
+    "seasonal_52": "Choose when yearly repetition and a transparent rule matter, if its error is acceptable.",
+    "recent_13_mean": "Choose when recent sales level matters more than yearly seasonality and simplicity is valuable.",
+    "gbdt_mae": "Choose for smaller typical unit errors when large misses have no extra penalty.",
+    "gbdt_rmse": "Choose when large misses are especially costly in either direction.",
+    "gbdt_poisson": "Choose for nonnegative count-like demand if its measured accuracy is competitive.",
+    "gbdt_q25": "Choose a lower forecast when excess stock is much more costly than shortages.",
+    "gbdt_q75": "Choose a higher forecast when shortages are much more costly than excess stock.",
+    "forest_mae": "Choose a bagged-tree alternative for typical unit error if it improves validation MAE.",
+    "forest_rmse": "Choose a bagged-tree alternative if reducing large misses improves validation RMSE.",
+    "forest_poisson": "Choose a bagged-tree count-demand alternative if its validation errors are competitive.",
+}
+METHOD_OBJECTIVES = {
+    "seasonal_52": "Comparable week 52 weeks earlier",
+    "recent_13_mean": "Mean of 13 observed weeks",
+    "gbdt_mae": "Histogram gradient boosting: absolute_error loss",
+    "gbdt_rmse": "Histogram gradient boosting: squared_error loss",
+    "gbdt_poisson": "Histogram gradient boosting: poisson loss",
+    "gbdt_q25": "Histogram gradient boosting: quantile loss at 0.25",
+    "gbdt_q75": "Histogram gradient boosting: quantile loss at 0.75",
+    "forest_mae": "Random forest: absolute_error split criterion",
+    "forest_rmse": "Random forest: squared_error split criterion",
+    "forest_poisson": "Random forest: poisson split criterion",
+}
+EVALUATION_CAVEAT = (
+    "The final historical window was inspected in an earlier project iteration. "
+    "It is a retrospective check, not a fresh untouched holdout for this expanded comparison."
+)
 
 
 @dataclass(frozen=True)
@@ -172,15 +247,34 @@ def _baseline_predictions(panel: Panel, origin: int, horizon: int) -> dict[str, 
     }
 
 
-def _fit_model(name: str, features: np.ndarray, targets: np.ndarray) -> HistGradientBoostingRegressor:
-    model = HistGradientBoostingRegressor(
-        **MODEL_CONFIGS[name],
-        categorical_features=[0],
-        early_stopping=False,
-        random_state=42,
-    )
-    model.fit(features, targets)
+def _forest_features(features: np.ndarray) -> np.ndarray:
+    """One-hot encode product identity so forest splits do not order products."""
+    product_index = features[:, 0].astype(np.int64)
+    one_hot = np.zeros((len(features), int(np.max(product_index)) + 1))
+    one_hot[np.arange(len(features)), product_index] = 1.0
+    return np.column_stack((features[:, 1:], one_hot))
+
+
+def _fit_model(
+    name: str, features: np.ndarray, targets: np.ndarray
+) -> HistGradientBoostingRegressor | RandomForestRegressor:
+    if name in GBDT_CONFIGS:
+        model = HistGradientBoostingRegressor(
+            **GBDT_CONFIGS[name],
+            categorical_features=[0],
+            early_stopping=False,
+            random_state=42,
+        )
+        model.fit(features, targets)
+        return model
+    model = RandomForestRegressor(**MODEL_CONFIGS[name])
+    model.fit(_forest_features(features), targets)
     return model
+
+
+def _predict_model(name: str, model: object, features: np.ndarray) -> np.ndarray:
+    prepared = _forest_features(features) if name in FOREST_CONFIGS else features
+    return np.maximum(np.asarray(model.predict(prepared), dtype=np.float64), 0.0)
 
 
 def _metrics(actual: np.ndarray, predicted: np.ndarray) -> dict[str, float | int | None]:
@@ -287,6 +381,9 @@ def _existing_summary(connection: sqlite3.Connection, run_key: str) -> dict[str,
         "backtest_origins": sorted({item["origin_week"] for item in backtests}),
         "selected_method": row["selected_method"],
         "selection_rule": row["selection_rule"],
+        "method_guidance": METHOD_GUIDANCE,
+        "method_objectives": METHOD_OBJECTIVES,
+        "evaluation_caveat": EVALUATION_CAVEAT,
         "development_metrics": json.loads(row["development_metrics_json"]),
         "holdout_metrics": json.loads(row["holdout_metrics_json"]),
         "fold_metrics": fold_metrics,
@@ -333,9 +430,8 @@ def run_forecast(
             training_rows = len(training_targets)
             for name in MODEL_CONFIGS:
                 model = _fit_model(name, training_features, training_targets)
-                predictions[name] = np.maximum(
-                    model.predict(future_features).reshape(len(panel.products), horizon),
-                    0.0,
+                predictions[name] = _predict_model(name, model, future_features).reshape(
+                    len(panel.products), horizon
                 )
             for name in methods:
                 fold_predictions[name].append(predictions[name])
@@ -375,16 +471,15 @@ def run_forecast(
         selection_rule = (
             "Lowest pooled MAE on the first three 26-week backtests; prefer the "
             "best baseline when it is within 1% of the best learned model. "
-            "The final 26-week backtest is reported without influencing selection."
+            "The final 26-week backtest is reported without influencing this run's "
+            "selection; it was inspected in an earlier project iteration."
         )
         if selected in MODEL_CONFIGS:
             full_features, full_targets = _training_matrix(panel, panel.max_week, horizon)
             final_model = _fit_model(selected, full_features, full_targets)
-            final_predictions = np.maximum(
-                final_model.predict(_future_matrix(panel, panel.max_week, horizon))
-                .reshape(len(panel.products), horizon),
-                0.0,
-            )
+            final_predictions = _predict_model(
+                selected, final_model, _future_matrix(panel, panel.max_week, horizon)
+            ).reshape(len(panel.products), horizon)
             training_rows = len(full_targets)
         else:
             final_predictions = _baseline_predictions(panel, panel.max_week, horizon)[
@@ -511,6 +606,9 @@ def run_forecast(
             "backtest_origins": origins,
             "selected_method": selected,
             "selection_rule": selection_rule,
+            "method_guidance": METHOD_GUIDANCE,
+            "method_objectives": METHOD_OBJECTIVES,
+            "evaluation_caveat": EVALUATION_CAVEAT,
             "development_metrics": development_metrics,
             "holdout_metrics": holdout_metrics,
             "fold_metrics": fold_metrics,

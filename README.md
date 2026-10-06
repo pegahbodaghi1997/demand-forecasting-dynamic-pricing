@@ -189,11 +189,14 @@ own predictions as lagged observations.
 
 Four non-overlapping rolling backtests use origins at weeks 156, 182, 208,
 and 234. Each predicts the following 26 weeks. The first three windows
-select the method; the last window, weeks 235-260, reports an untouched
-holdout result. Every model is trained only on target weeks at or before its
-origin. Two baselines are compared with two gradient-boosted tree variants:
-seasonal repetition from 52 weeks earlier, the mean of the latest 13 weeks,
-and global models with absolute-error or squared-error loss.
+select the method; the last window, weeks 235-260, is a retrospective check.
+It was inspected in an earlier iteration and is no longer a fresh untouched
+holdout for the expanded comparison. Every model is trained only on target
+weeks at or before its origin. The candidates are two simple baselines, five
+histogram gradient boosting models, and three random forest models. Gradient
+boosting losses are absolute error, squared error, Poisson, and the 25th and
+75th quantiles. Random forests use absolute-error, squared-error, or Poisson
+split criteria. A split criterion is not a global boosting loss.
 
 Features use known product identity, forecast horizon, week number and a
 52-week seasonal cycle; lagged sales and rolling volume statistics; and the
@@ -211,14 +214,17 @@ is undefined. Future error bands use the 90th percentile of absolute
 development errors at each horizon; they are descriptive ranges, not
 calibrated probabilities.
 
-For the supplied data, the selected method is the absolute-error gradient
-boosting model. Its holdout MAE is 456.876 units, compared with 562.025
-for the 13-week mean baseline and 610.599 for the 52-week seasonal
-baseline. The holdout WAPE is 36.806%. The full per-fold results are in
-reports/forecast_evaluation.json, with interpretation in
-reports/forecast_summary.md. The final forecast contains 780 rows
-for 30 products and weeks 261-286. Forecasts are stored separately
-from actual sales and versioned by run.
+For the supplied data, the selected method is the random forest with
+squared-error criterion. Its pooled development MAE is 605.651 units, 5.4%
+below the best gradient boosting candidate (640.349). In the previously
+inspected final window, its MAE is 488.001; the forest with absolute-error
+criterion has 452.517 and the absolute-error gradient booster has 456.876.
+These differences do not justify changing the declared development-only
+selection rule. The full per-fold results and all MAE, RMSE, WAPE, and
+positive-sales MAPE values are in reports/forecast_evaluation.json, with
+method-by-method decision guidance in reports/forecast_summary.md. The
+final forecast contains 780 rows for 30 products and weeks 261-286.
+Forecasts are stored separately from actual sales and versioned by run.
 
 ## Next stage
 

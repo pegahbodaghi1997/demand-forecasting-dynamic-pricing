@@ -12,7 +12,12 @@ import numpy as np
 from openpyxl import Workbook
 
 from assessment_etl.forecasting import (
+    BASELINE_METHODS,
+    METHOD_GUIDANCE,
+    METHOD_OBJECTIVES,
+    MODEL_CONFIGS,
     Panel,
+    _forest_features,
     _feature_vector,
     _metrics,
     _training_matrix,
@@ -22,6 +27,11 @@ from assessment_etl.pipeline import load_excel
 
 
 class ForecastingTests(unittest.TestCase):
+    def test_forest_product_id_is_one_hot_encoded(self) -> None:
+        features = np.array([[0.0, 1.0], [1.0, 2.0]])
+        prepared = _forest_features(features)
+        self.assertEqual(prepared.tolist(), [[1.0, 1.0, 0.0], [2.0, 0.0, 1.0]])
+
     def test_features_do_not_read_future_sales_or_prices(self) -> None:
         sales = np.arange(1, 131, dtype=float).reshape(1, 130)
         prices = np.full((1, 130), 10.0)
@@ -75,6 +85,16 @@ class ForecastingTests(unittest.TestCase):
             repeated = run_forecast(database, horizon=4)
             self.assertEqual(result["backtest_origins"], [114, 118, 122, 126])
             self.assertEqual(result["forecast_rows"], 8)
+            self.assertEqual(
+                set(result["development_metrics"]),
+                set(BASELINE_METHODS) | set(MODEL_CONFIGS),
+            )
+            self.assertEqual(set(result["method_guidance"]), set(METHOD_GUIDANCE))
+            self.assertEqual(set(result["method_objectives"]), set(METHOD_OBJECTIVES))
+            self.assertEqual(
+                {name for name in MODEL_CONFIGS if name.startswith("forest_")},
+                {"forest_mae", "forest_rmse", "forest_poisson"},
+            )
             self.assertTrue(repeated["skipped_existing"])
             self.assertEqual(repeated["fold_metrics"], result["fold_metrics"])
             self.assertEqual(repeated["forecast_rows"], result["forecast_rows"])
@@ -92,7 +112,7 @@ class ForecastingTests(unittest.TestCase):
                 )
                 self.assertEqual(
                     connection.execute("SELECT COUNT(*) FROM forecast_backtest").fetchone()[0],
-                    128,
+                    4 * 2 * 4 * (len(BASELINE_METHODS) + len(MODEL_CONFIGS)),
                 )
 
 
