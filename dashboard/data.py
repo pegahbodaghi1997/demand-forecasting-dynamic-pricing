@@ -18,6 +18,7 @@ VIEW_QUERIES = {
     "portfolio": "SELECT * FROM vw_kpi_portfolio_week ORDER BY week_id",
     "products": "SELECT * FROM vw_kpi_product_week ORDER BY product_name, week_id",
     "forecast": "SELECT * FROM vw_latest_demand_forecast ORDER BY product_name, week_id",
+    "pricing": "SELECT * FROM vw_latest_price_recommendation ORDER BY product_name",
 }
 
 
@@ -26,6 +27,7 @@ class DashboardData:
     portfolio: pd.DataFrame
     products: pd.DataFrame
     forecast: pd.DataFrame
+    pricing: pd.DataFrame
 
 
 def database_path() -> Path:
@@ -45,10 +47,15 @@ def load_dashboard_data(path: Path) -> DashboardData:
         raise FileNotFoundError(f"Dashboard database not found: {path}")
     connection = sqlite3.connect(f"{path.as_uri()}?mode=ro", uri=True)
     try:
-        tables = {
-            name: pd.read_sql_query(query, connection)
-            for name, query in VIEW_QUERIES.items()
-        }
+        tables = {}
+        for name, query in VIEW_QUERIES.items():
+            try:
+                tables[name] = pd.read_sql_query(query, connection)
+            except pd.errors.DatabaseError:
+                if name != "pricing":
+                    raise
+                # Snapshots made before the pricing phase remain readable.
+                tables[name] = pd.DataFrame()
     except (sqlite3.DatabaseError, pd.errors.DatabaseError) as exc:
         raise ValueError(f"Dashboard database is missing a required view or table: {exc}") from exc
     finally:

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import altair as alt
 import pandas as pd
 import streamlit as st
@@ -76,8 +78,8 @@ chart_start = (
     else last_week - history_window + 1
 )
 
-overview, forecast_tab, inventory_tab, method_tab = st.tabs(
-    ["Overview", "Demand forecast", "Inventory diagnostics", "Data and method"]
+overview, forecast_tab, inventory_tab, pricing_tab, method_tab = st.tabs(
+    ["Overview", "Demand forecast", "Inventory diagnostics", "Pricing rules", "Data and method"]
 )
 
 with overview:
@@ -215,6 +217,51 @@ with inventory_tab:
             width="stretch",
         )
         st.caption("Sales may exceed opening inventory because in-week receipts are unknown.")
+
+with pricing_tab:
+    st.subheader(f"Price proposals for relative week {last_week + 1}")
+    st.caption("Rule-based review proposals, not implemented prices. No price elasticity or causal profit uplift is assumed.")
+    if data.pricing.empty:
+        st.info("No current price proposals are stored. Run: python -m assessment_etl price")
+    else:
+        pricing_rows = (
+            data.pricing
+            if selected_product == "All products"
+            else data.pricing.loc[data.pricing["product_name"] == selected_product]
+        )
+        policy_settings = json.loads(data.pricing["policy_json"].iloc[0])
+        st.caption(
+            f"Policy: minimum gross margin {policy_settings['minimum_margin_pct']}% · "
+            f"maximum price move {policy_settings['maximum_change_pct']}% · "
+            f"step {policy_settings['step_pct']}% · "
+            f"demand trigger ±{policy_settings['demand_trigger_pct']}% versus "
+            f"{policy_settings['recent_weeks']} observed weeks."
+        )
+        counts = pricing_rows["decision"].value_counts()
+        cards = st.columns(4)
+        for card, decision in zip(cards, ("increase", "decrease", "hold", "review")):
+            card.metric(decision.title(), f"{int(counts.get(decision, 0)):,}")
+        st.dataframe(
+            pricing_rows[
+                ["product_name", "current_price", "unit_cost", "minimum_price",
+                 "recommended_price", "recommended_gross_margin_pct", "decision", "reason_code", "forecast_units",
+                 "recent_mean_units", "forecast_vs_recent_ratio", "break_even_units",
+                 "break_even_volume_change_pct", "inventory_warning"]
+            ],
+            hide_index=True,
+            width="stretch",
+        )
+        st.caption(
+            "Break-even units are the sales volume needed to preserve reference gross profit "
+            "at the proposed price. They are not predicted sales at that price. "
+            "Inventory warnings use historical opening stock only."
+        )
+        st.download_button(
+            "Download price proposals (CSV)",
+            pricing_rows.to_csv(index=False).encode("utf-8"),
+            file_name="price_proposals.csv",
+            mime="text/csv",
+        )
 
 with method_tab:
     st.subheader("Coverage and interpretation")

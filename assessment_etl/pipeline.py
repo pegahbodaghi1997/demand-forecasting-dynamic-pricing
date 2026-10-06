@@ -671,6 +671,8 @@ def database_summary(database: Path = DEFAULT_DATABASE) -> dict[str, object]:
                 "forecast_run",
                 "forecast_backtest",
                 "fact_demand_forecast",
+                "pricing_run",
+                "fact_price_recommendation",
             )
         }
         runs = [

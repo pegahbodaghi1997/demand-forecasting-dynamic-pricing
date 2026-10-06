@@ -1,12 +1,12 @@
 # Weekly commodity forecasting and KPI dashboard
 
 This project implements the data engineering, demand forecasting, historical
-KPI, and interactive dashboard stages of the technical assessment.
+KPI, interactive dashboard, and rule-based pricing stages of the technical
+assessment.
 It archives each input Excel workbook in SQLite, retains every parsed data row in
 a raw table, validates and cleans the rows, and loads a small star schema. The
 default generated database path is data/assessment.sqlite. The Streamlit
-dashboard reads the KPI views and latest forecast. The dynamic pricing
-strategy is the next stage.
+dashboard reads the KPI views, latest forecast, and next-week price proposals.
 
 ## Data flow
 
@@ -25,6 +25,9 @@ Excel workbook (.xlsx / .xlsm)
                                 |                       |
                                 v                       v
                       historical KPI report   forecast_run + fact_demand_forecast
+                                                         |
+                                                         v
+                                            pricing_run + fact_price_recommendation
 ~~~
 
 The workbook archive and raw rows are committed before the clean load. If
@@ -59,6 +62,7 @@ py -3.13 -m venv .venv
 .\.venv\Scripts\python.exe -m assessment_etl load .\Technical_Assessment\Sample_Data.xlsx
 .\.venv\Scripts\python.exe -m assessment_etl forecast --horizon 26 --report .\data\forecast_evaluation.json
 .\.venv\Scripts\python.exe -m assessment_etl kpi --weeks 13 --report .\data\kpi_summary.json
+.\.venv\Scripts\python.exe -m assessment_etl price --report .\data\pricing_report.json
 .\.venv\Scripts\python.exe -m assessment_etl status
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 .\.venv\Scripts\python.exe -m streamlit run .\dashboard\app.py
@@ -67,8 +71,10 @@ py -3.13 -m venv .venv
 Open the local URL printed by Streamlit, normally `http://localhost:8501`.
 Stop the server with Ctrl+C. The forecast command backtests multiple models
 and can take several minutes. It saves its selected model and the next 26
-weeks of predictions in the local SQLite database. The dashboard reads that
-database read-only; refreshing the page does not rerun ingestion or training.
+weeks of predictions in the local SQLite database. The price command writes
+reviewable proposals for the first future week. The dashboard reads that
+database read-only; refreshing the page does not rerun ingestion, training,
+or pricing.
 
 ### macOS or Linux shell
 
@@ -80,6 +86,7 @@ python3.13 -m venv .venv
 ./.venv/bin/python -m assessment_etl load ./Technical_Assessment/Sample_Data.xlsx
 ./.venv/bin/python -m assessment_etl forecast --horizon 26 --report ./data/forecast_evaluation.json
 ./.venv/bin/python -m assessment_etl kpi --weeks 13 --report ./data/kpi_summary.json
+./.venv/bin/python -m assessment_etl price --report ./data/pricing_report.json
 ./.venv/bin/python -m assessment_etl status
 ./.venv/bin/python -m unittest discover -s tests -v
 ./.venv/bin/python -m streamlit run ./dashboard/app.py
@@ -89,7 +96,8 @@ The first load creates `data/assessment.sqlite` and stores the exact workbook
 bytes plus all parsed raw rows before the clean fact load. A fresh run should
 show 7,839 raw rows, 7,800 cleaned product-week rows, 30 products, and 39
 equivalent duplicate rows. The forecast should add 780 future rows (30
-products × 26 weeks) to `vw_latest_demand_forecast`. The 13-week KPI report
+products × 26 weeks) to `vw_latest_demand_forecast`. Pricing should produce
+30 next-week proposals in `vw_latest_price_recommendation`. The 13-week KPI report
 should show revenue of 16,042,252.47 and gross margin of 21.49% in the
 source's unspecified currency. These checks make it easy to spot an incomplete
 run. Forecast run IDs can differ from the committed example report because
@@ -97,8 +105,9 @@ the local database starts empty.
 
 Rerunning `load` for the same workbook is safe: its file hash is recognized
 and no duplicate facts are inserted. The forecast command likewise reuses an
-existing result for unchanged data and configuration. The local JSON reports
-under `data/` are generated outputs and are ignored by Git.
+existing result for unchanged data and configuration. Pricing is also
+idempotent for the same forecast, source inputs, and policy settings. The
+local JSON reports under `data/` are generated outputs and are ignored by Git.
 
 The optional sqlite3 command-line program can inspect the generated file:
 
@@ -161,6 +170,9 @@ archived.
 | forecast_backtest | Predictions and actual sales for each method and historical test window. |
 | fact_demand_forecast | Versioned future predictions and empirical error bands. |
 | vw_latest_demand_forecast | The newest forecast run for dashboard queries. |
+| pricing_run | Policy version, thresholds, source fingerprint, and forecast provenance. |
+| fact_price_recommendation | Versioned next-week proposals and break-even volume per product. |
+| vw_latest_price_recommendation | Current proposals for SQL and dashboard queries. |
 
 Counts and week IDs use SQLite INTEGER. Unit cost, unit price, revenue,
 gross profit, and operating profit are stored as integer cents to avoid
@@ -315,7 +327,8 @@ inventory diagnostics; data coverage; and an export of selected historical
 rows. All displayed money is in source currency units, whose currency was not
 specified. Product forecast error bands are descriptive and are not added to
 make a portfolio uncertainty band. The forecast is a proxy for recorded sales,
-not a measure of sales lost to unavailable inventory.
+not a measure of sales lost to unavailable inventory. A pricing tab shows the
+next-week review proposals, their reasons, hard limits, and break-even volumes.
 
 The app uses the local `data/assessment.sqlite` produced by the commands
 above. To point it at another SQLite file, set `DASHBOARD_DB` before starting
@@ -326,20 +339,43 @@ $env:DASHBOARD_DB = (Resolve-Path .\data\assessment.sqlite).Path
 .\.venv\Scripts\python.exe -m streamlit run .\dashboard\app.py
 ~~~
 
-An optional portable copy of the three dashboard views can be created with:
+An optional portable copy of the dashboard views can be created with:
 
 ~~~powershell
 .\.venv\Scripts\python.exe -m dashboard.export_snapshot
 ~~~
 
-This creates `dashboard/data/assessment_snapshot.sqlite` with only three
-tables: portfolio KPIs, product KPIs, and the latest demand forecast. It does
+This creates `dashboard/data/assessment_snapshot.sqlite` with four tables:
+portfolio KPIs, product KPIs, the latest demand forecast, and the latest price
+proposals. It does
 not include the source workbook, raw rows, quality issues, or backtest records.
 The snapshot is ignored by Git. It is not needed for the local walkthrough.
 If the operational database is absent, the dashboard can fall back to this
 snapshot. `DASHBOARD_DB` takes precedence over both paths.
 
-## Next stage
+## Rule-based pricing
 
-Define a dynamic pricing strategy with margin, inventory, demand, and
-credit-risk guardrails where data permits.
+The `price` command uses the latest 26-week forecast only as a directional
+sales signal for the first future week. It does not retrain the forecast model
+or treat it as a price-response model. Proposals are stored separately from
+actual prices and can be queried with:
+
+~~~sql
+SELECT product_name, current_price, recommended_price, decision,
+       reason_code, break_even_units, inventory_warning
+FROM vw_latest_price_recommendation ORDER BY product_name;
+~~~
+
+The default policy uses a 15% minimum gross margin, a 5% maximum price move,
+a 3% directional step, and a 20% difference from the preceding 13-week mean
+sales to signal high or low forecast demand. These are configurable policy
+assumptions, not statistically optimized thresholds. Run
+`python -m assessment_etl price --help` for CLI options. The policy, formulas, limits,
+and interpretation are in `reports/pricing_strategy.md`.
+
+For a fresh run on unchanged sample inputs, proposals cover 30 products for
+relative week 261. If actual sales or prices change after forecasting, run
+`forecast` again before `price`; stale forecasts are rejected. Historical
+opening inventory supplies a caution flag only. It is not assumed to be
+current stock. No DSI, DSO, default-risk score, causal elasticity, or
+counterfactual profit uplift is manufactured from the available fields.

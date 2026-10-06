@@ -278,3 +278,77 @@ FROM fact_demand_forecast AS f
 JOIN forecast_run AS r ON r.forecast_run_id = f.forecast_run_id
 JOIN dim_product AS p ON p.product_id = f.product_id
 WHERE f.forecast_run_id = (SELECT MAX(forecast_run_id) FROM forecast_run);
+
+-- Rule-based price proposals are versioned separately from observed prices.
+-- A proposal is for review; it is not an implemented price or a causal uplift estimate.
+CREATE TABLE IF NOT EXISTS pricing_run (
+    pricing_run_id INTEGER PRIMARY KEY,
+    run_key TEXT NOT NULL UNIQUE,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    forecast_run_id INTEGER NOT NULL REFERENCES forecast_run(forecast_run_id),
+    base_week INTEGER NOT NULL,
+    target_week INTEGER NOT NULL,
+    policy_version TEXT NOT NULL,
+    policy_json TEXT NOT NULL,
+    input_sha256 TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS fact_price_recommendation (
+    pricing_run_id INTEGER NOT NULL REFERENCES pricing_run(pricing_run_id),
+    product_id INTEGER NOT NULL REFERENCES dim_product(product_id),
+    target_week INTEGER NOT NULL REFERENCES dim_week(week_id),
+    current_price_cents INTEGER NOT NULL CHECK (current_price_cents > 0),
+    unit_cost_cents INTEGER NOT NULL CHECK (unit_cost_cents >= 0),
+    minimum_price_cents INTEGER NOT NULL CHECK (minimum_price_cents >= 0),
+    recommended_price_cents INTEGER CHECK (recommended_price_cents > 0),
+    forecast_units INTEGER NOT NULL CHECK (forecast_units >= 0),
+    recent_mean_units REAL,
+    forecast_vs_recent_ratio REAL,
+    demand_signal TEXT NOT NULL CHECK (demand_signal IN ('high', 'low', 'neutral', 'unavailable')),
+    decision TEXT NOT NULL CHECK (decision IN ('increase', 'decrease', 'hold', 'review')),
+    reason_code TEXT NOT NULL,
+    opening_stock_cover_days_proxy REAL,
+    inventory_warning INTEGER NOT NULL CHECK (inventory_warning IN (0, 1)),
+    break_even_units INTEGER CHECK (break_even_units >= 0),
+    PRIMARY KEY (pricing_run_id, product_id),
+    CHECK (decision = 'review' OR recommended_price_cents IS NOT NULL)
+);
+
+DROP VIEW IF EXISTS vw_latest_price_recommendation;
+CREATE VIEW vw_latest_price_recommendation AS
+SELECT
+    p.product_name,
+    r.base_week,
+    x.target_week,
+    x.current_price_cents / 100.0 AS current_price,
+    x.unit_cost_cents / 100.0 AS unit_cost,
+    x.minimum_price_cents / 100.0 AS minimum_price,
+    x.recommended_price_cents / 100.0 AS recommended_price,
+    100.0 * (x.current_price_cents - x.unit_cost_cents)
+          / x.current_price_cents AS current_gross_margin_pct,
+    CASE WHEN x.recommended_price_cents > 0
+         THEN 100.0 * (x.recommended_price_cents - x.unit_cost_cents)
+              / x.recommended_price_cents
+    END AS recommended_gross_margin_pct,
+    x.forecast_units,
+    x.recent_mean_units,
+    x.forecast_vs_recent_ratio,
+    x.demand_signal,
+    x.decision,
+    x.reason_code,
+    x.opening_stock_cover_days_proxy,
+    x.inventory_warning,
+    x.break_even_units,
+    CASE WHEN x.forecast_units > 0 AND x.break_even_units IS NOT NULL
+         THEN 100.0 * (x.break_even_units - x.forecast_units) / x.forecast_units
+    END AS break_even_volume_change_pct,
+    r.policy_version,
+    r.policy_json,
+    r.pricing_run_id,
+    r.forecast_run_id
+FROM fact_price_recommendation AS x
+JOIN pricing_run AS r ON r.pricing_run_id = x.pricing_run_id
+JOIN dim_product AS p ON p.product_id = x.product_id
+WHERE r.pricing_run_id = (SELECT MAX(pricing_run_id) FROM pricing_run)
+  AND r.forecast_run_id = (SELECT MAX(forecast_run_id) FROM forecast_run)
+  AND r.base_week = (SELECT MAX(week_id) FROM fact_weekly_product);

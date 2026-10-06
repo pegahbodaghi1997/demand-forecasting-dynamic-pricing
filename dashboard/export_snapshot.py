@@ -36,6 +36,7 @@ def export_snapshot(source: Path, target: Path) -> dict[str, int]:
                         "portfolio": "vw_kpi_portfolio_week",
                         "products": "vw_kpi_product_week",
                         "forecast": "vw_latest_demand_forecast",
+                        "pricing": "vw_latest_price_recommendation",
                     }[name]
                     # Declared types are inferred from source view metadata, including NULL-only columns.
                     metadata = warehouse.execute(f'PRAGMA table_info("{table_name}")').fetchall()
